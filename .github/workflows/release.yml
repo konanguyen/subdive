@@ -13,8 +13,43 @@ env:
   PYTHON_VERSION: "3.12"
 
 jobs:
+  validate:
+    name: validate version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check versions match
+        run: |
+          set -euo pipefail
+          PYPROJECT_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)"
+          MODULE_VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' subdive.py)"
+          echo "pyproject.toml: ${PYPROJECT_VERSION}"
+          echo "subdive.py:     ${MODULE_VERSION}"
+
+          if [ -z "$PYPROJECT_VERSION" ] || [ -z "$MODULE_VERSION" ]; then
+            echo "::error::could not read version from pyproject.toml or subdive.py"
+            exit 1
+          fi
+
+          if [ "$PYPROJECT_VERSION" != "$MODULE_VERSION" ]; then
+            echo "::error::pyproject.toml (${PYPROJECT_VERSION}) and subdive.py (${MODULE_VERSION}) versions differ"
+            exit 1
+          fi
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            echo "tag:            ${TAG_VERSION}"
+            if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
+              echo "::error::tag ${GITHUB_REF_NAME} does not match project version ${PYPROJECT_VERSION}"
+              exit 1
+            fi
+          fi
+
   build:
     name: build binary (${{ matrix.arch }})
+    needs: validate
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
