@@ -21,8 +21,15 @@ results-zero/
 results-*/
 *.log
 
-# ---- Wordlist tải tự động (xem ensure_wordlist trong subfind.py) ----
+# ---- Wordlist tải tự động (xem ensure_wordlist trong subdive.py) ----
 wordlists/
+
+# ---- PyInstaller / đóng gói ----
+*.spec
+pkg-deb/
+pkg-arch/
+*.deb
+*.pkg.tar.zst
 
 # ---- Dữ liệu nhạy cảm / đầu vào ----
 .env

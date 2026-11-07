@@ -1,0 +1,174 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  build:
+    name: build binary (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+            deb_arch: amd64
+            pkg_arch: x86_64
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+            deb_arch: arm64
+            pkg_arch: aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build standalone binary
+        run: |
+          pyinstaller --onefile --name subdive --clean --noconfirm --log-level WARN subdive.py
+          mv dist/subdive "dist/subdive-linux-${{ matrix.arch }}"
+
+      - name: Smoke test
+        run: |
+          "dist/subdive-linux-${{ matrix.arch }}" --version
+          "dist/subdive-linux-${{ matrix.arch }}" --help > /dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.arch }}
+          path: dist/subdive-linux-${{ matrix.arch }}
+          if-no-files-found: error
+
+  package:
+    name: package (${{ matrix.arch }})
+    needs: build
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+            deb_arch: amd64
+            pkg_arch: x86_64
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+            deb_arch: arm64
+            pkg_arch: aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binary-${{ matrix.arch }}
+          path: dist
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "building version ${VERSION}"
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends dpkg-dev libarchive-tools zstd fakeroot
+
+      - name: Build .deb
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DEB_ARCH: ${{ matrix.deb_arch }}
+          BINARY: dist/subdive-linux-${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          chmod +x "$BINARY"
+
+          ROOT="pkg-deb"
+          rm -rf "$ROOT"
+          mkdir -p "$ROOT/DEBIAN" "$ROOT/usr/bin" "$ROOT/usr/share/doc/subdive"
+          install -m 0755 "$BINARY" "$ROOT/usr/bin/subdive"
+          install -m 0644 README.md "$ROOT/usr/share/doc/subdive/README.md"
+          install -m 0644 LICENSE "$ROOT/usr/share/doc/subdive/copyright"
+
+          {
+            echo "Package: subdive"
+            echo "Version: ${VERSION}"
+            echo "Section: net"
+            echo "Priority: optional"
+            echo "Architecture: ${DEB_ARCH}"
+            echo "Depends: ca-certificates"
+            echo "Maintainer: konanguyen <ng.hao2711@gmail.com>"
+            echo "Homepage: https://github.com/konanguyen/subdive"
+            echo "Description: Deep subdomain enumeration with DNS-over-HTTPS fallback"
+            echo " subdive combines free passive sources, certificate transparency, DNS"
+            echo " brute force, alteration search, reverse DNS, TLS SAN harvesting and"
+            echo " search engine queries. It falls back to DNS-over-HTTPS when the"
+            echo " system resolver is rate limited and can diff results against a"
+            echo " previous report."
+          } > "$ROOT/DEBIAN/control"
+
+          dpkg-deb --build --root-owner-group "$ROOT" \
+            "subdive_${VERSION}_${DEB_ARCH}.deb"
+
+      - name: Build Arch package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PKG_ARCH: ${{ matrix.pkg_arch }}
+          BINARY: dist/subdive-linux-${{ matrix.arch }}
+        run: |
+          chmod +x "$BINARY"
+          fakeroot bash .github/scripts/package-arch.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.arch }}
+          path: |
+            subdive_*.deb
+            subdive-*.pkg.tar.zst
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          sha256sum * > SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true

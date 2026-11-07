@@ -70,6 +70,31 @@ GitHub on first use and can be refreshed at any time:
 subdive -d example.com --update-wordlist
 ```
 
+## Prebuilt packages
+
+Every tagged release publishes binaries and packages for x86_64 and aarch64.
+Download them from the releases page:
+
+| Asset | Platform |
+|---|---|
+| `subdive_<version>_amd64.deb` | Debian, Ubuntu, Kali (x86_64) |
+| `subdive_<version>_arm64.deb` | Debian, Ubuntu, Kali (aarch64) |
+| `subdive-<version>-1-x86_64.pkg.tar.zst` | Arch Linux (x86_64) |
+| `subdive-<version>-1-aarch64.pkg.tar.zst` | Arch Linux (aarch64) |
+| `subdive-linux-x86_64` | Standalone binary (x86_64) |
+| `subdive-linux-aarch64` | Standalone binary (aarch64) |
+| `SHA256SUMS` | Checksums for all of the above |
+
+Install:
+
+```bash
+sudo apt install ./subdive_1.0.0_amd64.deb
+sudo pacman -U subdive-1.0.0-1-x86_64.pkg.tar.zst
+```
+
+The standalone binaries are built on Ubuntu 22.04, so they require glibc 2.35
+or newer (Debian 12, Ubuntu 22.04, Kali 2023 and later).
+
 ## Usage
 
 Activate the virtualenv once per shell:
