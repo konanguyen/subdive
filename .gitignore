@@ -1,0 +1,43 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---- Virtualenv ----
+.venv/
+venv/
+env/
+ENV/
+
+# ---- Kết quả quét (file sinh ra, dung lượng lớn) ----
+results/
+results-zero/
+results-*/
+*.log
+
+# ---- Wordlist tải tự động (xem ensure_wordlist trong subfind.py) ----
+wordlists/
+
+# ---- Dữ liệu nhạy cảm / đầu vào ----
+.env
+.env.*
+!.env.example
+*.pdf
+baseline_*.txt
+
+# ---- Cache / công cụ ----
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.idea/
+.vscode/
+*.swp
+.DS_Store

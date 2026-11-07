@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "subdive"
+version = "1.0.0"
+description = "Deep subdomain enumeration from free public sources, with DNS-over-HTTPS fallback"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["subdomain", "recon", "osint", "dns", "bugbounty", "pentest"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+]
+dependencies = [
+    "requests>=2.31",
+    "dnspython>=2.6",
+    "cryptography>=42",
+    "pypdf>=5",
+]
+
+[project.scripts]
+subdive = "subdive:main"
+
+[tool.setuptools]
+py-modules = ["subdive"]

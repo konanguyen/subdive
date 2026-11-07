@@ -1,0 +1,4 @@
+requests>=2.31
+dnspython>=2.6
+cryptography>=42
+pypdf>=5
